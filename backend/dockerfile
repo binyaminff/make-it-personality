@@ -24,7 +24,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
 # התקנת תלויות פרודקשן בלבד (חוסך המון מקום)
-RUN npm install --only=production
+RUN npm install 
 
 EXPOSE 3000
 
