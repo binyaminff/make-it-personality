@@ -25,7 +25,7 @@ app.use(express.json());
 app.use('/api', apiRoutes);
 
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/make-it-meme';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://binyamin:nxyru123@cluster0.qtoc3l9.mongodb.net/make-it-meme';
 mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
@@ -38,7 +38,7 @@ io.on('connection', (socket) => {
     try {
       const { roomCode, userName, userId } = data;
       const game = await Game.findOne({ roomCode });
-      
+
       if (!game) {
         return socket.emit('error', 'Room not found');
       }
@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
 
       await game.save();
       socket.join(roomCode);
-      
+
       io.to(roomCode).emit('game_update', game);
       console.log(`${userName} joined room ${roomCode}`);
     } catch (err) {
@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
       if (!game || game.status !== 'playing') return;
 
       const currentRound = game.rounds[game.rounds.length - 1];
-      
+
       // Check if already submitted
       const existingSubmission = currentRound.submissions.find(s => s.userId === data.userId);
       if (!existingSubmission) {
@@ -130,7 +130,7 @@ io.on('connection', (socket) => {
       if (!game || game.status !== 'voting') return;
 
       const currentRound = game.rounds[game.rounds.length - 1];
-      
+
       // Check if already voted
       let alreadyVoted = false;
       currentRound.submissions.forEach(sub => {
@@ -143,7 +143,7 @@ io.on('connection', (socket) => {
         const targetSubmission = currentRound.submissions.find(s => s.userId === data.targetUserId);
         if (targetSubmission && data.userId !== data.targetUserId) {
           targetSubmission.votes.push(data.userId);
-          
+
           // Update score of the target user
           const targetPlayer = game.players.find(p => p.userId === data.targetUserId);
           if (targetPlayer) {
@@ -155,10 +155,10 @@ io.on('connection', (socket) => {
       // Check if everyone voted
       let totalVotes = 0;
       currentRound.submissions.forEach(sub => totalVotes += sub.votes.length);
-      
+
       if (totalVotes === game.players.length) {
         game.status = 'finished';
-        
+
         // Find winner
         let maxVotes = -1;
         let winnerId = '';
