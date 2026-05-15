@@ -25,7 +25,7 @@ app.use(express.json());
 app.use('/api', apiRoutes);
 
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://binyamin:nxyru123@cluster0.qtoc3l9.mongodb.net/make-it-meme';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://binyamin:nxyru123@cluster0.qtoc3l9.mongodb.net';
 mongoose.connect(MONGO_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
