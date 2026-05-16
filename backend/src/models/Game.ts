@@ -9,12 +9,12 @@ export interface IPlayer {
 
 export interface ISubmission {
   userId: string;
-  imageUrl: string;
-  votes: string[]; // IDs of users who voted for this image
+  text: string;
+  votes: string[]; // IDs of users who voted for this text
 }
 
 export interface IRound {
-  prompt: string;
+  imageUrl: string;
   submissions: ISubmission[];
   winnerId?: string;
 }
@@ -24,6 +24,7 @@ export interface IGame extends Document {
   hostId: string;
   players: IPlayer[];
   status: 'waiting' | 'playing' | 'voting' | 'finished';
+  imagePool: string[];
   rounds: IRound[];
   createdAt: Date;
 }
@@ -38,11 +39,12 @@ const GameSchema = new Schema<IGame>({
     socketId: String
   }],
   status: { type: String, enum: ['waiting', 'playing', 'voting', 'finished'], default: 'waiting' },
+  imagePool: [{ type: String }],
   rounds: [{
-    prompt: String,
+    imageUrl: String,
     submissions: [{
       userId: String,
-      imageUrl: String,
+      text: String,
       votes: [String]
     }],
     winnerId: String

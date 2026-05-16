@@ -67,35 +67,49 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('start_round', async (data: { roomCode: string }) => {
+  socket.on('add_to_pool', async (data: { roomCode: string, imageUrl: string }) => {
     try {
       const game = await Game.findOne({ roomCode: data.roomCode });
-      if (!game) return;
+      if (!game || game.status !== 'waiting') return;
 
-      // Fetch random prompt
-      const count = await Prompt.countDocuments();
-      let promptText = "כשאתה מבין שיום ראשון מחר";
-      if (count > 0) {
-        const random = Math.floor(Math.random() * count);
-        const prompt = await Prompt.findOne().skip(random);
-        if (prompt) promptText = prompt.text;
-      }
-
-      game.status = 'playing';
-      game.rounds.push({
-        prompt: promptText,
-        submissions: []
-      });
-
+      game.imagePool.push(data.imageUrl);
       await game.save();
+      
       io.to(data.roomCode).emit('game_update', game);
-      io.to(data.roomCode).emit('start_round', { prompt: promptText });
     } catch (err) {
       console.error(err);
     }
   });
 
-  socket.on('upload_complete', async (data: { roomCode: string, userId: string, imageUrl: string }) => {
+  socket.on('start_round', async (data: { roomCode: string }) => {
+    try {
+      const game = await Game.findOne({ roomCode: data.roomCode });
+      if (!game) return;
+
+      // Pick a random image from the pool
+      let imageUrl = "https://via.placeholder.com/800x800.png?text=No+Images+In+Pool";
+      if (game.imagePool && game.imagePool.length > 0) {
+        const random = Math.floor(Math.random() * game.imagePool.length);
+        imageUrl = game.imagePool[random];
+        // Optional: Remove image from pool so it's not reused
+        // game.imagePool.splice(random, 1);
+      }
+
+      game.status = 'playing';
+      game.rounds.push({
+        imageUrl: imageUrl,
+        submissions: []
+      });
+
+      await game.save();
+      io.to(data.roomCode).emit('game_update', game);
+      io.to(data.roomCode).emit('start_round', { imageUrl: imageUrl });
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  socket.on('submit_caption', async (data: { roomCode: string, userId: string, text: string }) => {
     try {
       const game = await Game.findOne({ roomCode: data.roomCode });
       if (!game || game.status !== 'playing') return;
@@ -107,7 +121,7 @@ io.on('connection', (socket) => {
       if (!existingSubmission) {
         currentRound.submissions.push({
           userId: data.userId,
-          imageUrl: data.imageUrl,
+          text: data.text,
           votes: []
         });
       }
