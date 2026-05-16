@@ -70,16 +70,16 @@ router.post('/upload', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Mock upload if Cloudinary is not configured
+    const b64 = Buffer.from(req.file.buffer).toString('base64');
+    let dataURI = 'data:' + req.file.mimetype + ';base64,' + b64;
+
+    // Return Base64 directly if Cloudinary is not configured
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
-      console.log('Mocking Cloudinary upload...');
-      return res.json({ imageUrl: 'https://via.placeholder.com/800x800.png?text=Mock+Image' });
+      console.log('No Cloudinary config, returning Base64 string directly.');
+      return res.json({ imageUrl: dataURI });
     }
 
     // Upload to Cloudinary
-    const b64 = Buffer.from(req.file.buffer).toString('base64');
-    let dataURI = 'data:' + req.file.mimetype + ';base64,' + b64;
-    
     const result = await cloudinary.uploader.upload(dataURI, {
       folder: 'make-it-meme',
       resource_type: 'image',
