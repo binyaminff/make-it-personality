@@ -67,12 +67,27 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('add_to_pool', async (data: { roomCode: string, imageUrl: string }) => {
+  socket.on('update_settings', async (data: { roomCode: string, numRounds: number, roundTimeSeconds: number }) => {
     try {
       const game = await Game.findOne({ roomCode: data.roomCode });
       if (!game || game.status !== 'waiting') return;
 
-      game.imagePool.push(data.imageUrl);
+      game.settings = { numRounds: data.numRounds, roundTimeSeconds: data.roundTimeSeconds };
+      await game.save();
+      io.to(data.roomCode).emit('game_update', game);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  socket.on('add_to_pool', async (data: { roomCode: string, userId: string, imageUrls: string[] }) => {
+    try {
+      const game = await Game.findOne({ roomCode: data.roomCode });
+      if (!game || game.status !== 'waiting') return;
+
+      data.imageUrls.forEach(url => {
+        game.imagePool.push({ userId: data.userId, imageUrl: url });
+      });
       await game.save();
       
       io.to(data.roomCode).emit('game_update', game);
@@ -86,24 +101,56 @@ io.on('connection', (socket) => {
       const game = await Game.findOne({ roomCode: data.roomCode });
       if (!game) return;
 
-      // Pick a random image from the pool
-      let imageUrl = "https://via.placeholder.com/800x800.png?text=No+Images+In+Pool";
-      if (game.imagePool && game.imagePool.length > 0) {
-        const random = Math.floor(Math.random() * game.imagePool.length);
-        imageUrl = game.imagePool[random];
-        // Optional: Remove image from pool so it's not reused
-        // game.imagePool.splice(random, 1);
-      }
+      // Assign an image to each player
+      const submissions = [];
+      const pool = [...game.imagePool];
+      
+      game.players.forEach(player => {
+        let imageUrl = "https://via.placeholder.com/800x800.png?text=Not+Enough+Images";
+        if (pool.length > 0) {
+          // Try to find an image NOT uploaded by this player
+          let index = pool.findIndex(img => img.userId !== player.userId);
+          if (index === -1) index = 0; // Fallback to own image
+          
+          imageUrl = pool[index].imageUrl;
+          pool.splice(index, 1); // Remove from available pool
+        }
+        
+        submissions.push({
+          userId: player.userId,
+          imageUrl: imageUrl,
+          text: '',
+          votes: []
+        });
+      });
 
+      // Update remaining pool
+      game.imagePool = pool;
       game.status = 'playing';
+      
+      const roundEndsAt = new Date(Date.now() + game.settings.roundTimeSeconds * 1000);
       game.rounds.push({
-        imageUrl: imageUrl,
-        submissions: []
+        submissions: submissions,
+        roundEndsAt: roundEndsAt
       });
 
       await game.save();
       io.to(data.roomCode).emit('game_update', game);
-      io.to(data.roomCode).emit('start_round', { imageUrl: imageUrl });
+
+      // Set timeout to automatically end the round (typing phase)
+      setTimeout(async () => {
+        try {
+          const updatedGame = await Game.findById(game._id);
+          if (updatedGame && updatedGame.status === 'playing') {
+            updatedGame.status = 'voting';
+            await updatedGame.save();
+            io.to(data.roomCode).emit('game_update', updatedGame);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, game.settings.roundTimeSeconds * 1000);
+
     } catch (err) {
       console.error(err);
     }
@@ -116,18 +163,15 @@ io.on('connection', (socket) => {
 
       const currentRound = game.rounds[game.rounds.length - 1];
 
-      // Check if already submitted
+      // Update the submission
       const existingSubmission = currentRound.submissions.find(s => s.userId === data.userId);
-      if (!existingSubmission) {
-        currentRound.submissions.push({
-          userId: data.userId,
-          text: data.text,
-          votes: []
-        });
+      if (existingSubmission) {
+        existingSubmission.text = data.text;
       }
 
-      // If everyone uploaded, move to voting phase
-      if (currentRound.submissions.length === game.players.length) {
+      // If everyone uploaded text, move to voting phase early
+      const allSubmitted = currentRound.submissions.every(s => s.text && s.text.trim() !== '');
+      if (allSubmitted) {
         game.status = 'voting';
       }
 

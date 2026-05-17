@@ -9,14 +9,20 @@ export interface IPlayer {
 
 export interface ISubmission {
   userId: string;
+  imageUrl: string;
   text: string;
   votes: string[]; // IDs of users who voted for this text
 }
 
 export interface IRound {
-  imageUrl: string;
   submissions: ISubmission[];
+  roundEndsAt?: Date;
   winnerId?: string;
+}
+
+export interface IPoolImage {
+  userId: string;
+  imageUrl: string;
 }
 
 export interface IGame extends Document {
@@ -24,7 +30,11 @@ export interface IGame extends Document {
   hostId: string;
   players: IPlayer[];
   status: 'waiting' | 'playing' | 'voting' | 'finished';
-  imagePool: string[];
+  settings: {
+    roundTimeSeconds: number;
+    numRounds: number;
+  };
+  imagePool: IPoolImage[];
   rounds: IRound[];
   createdAt: Date;
 }
@@ -39,17 +49,25 @@ const GameSchema = new Schema<IGame>({
     socketId: String
   }],
   status: { type: String, enum: ['waiting', 'playing', 'voting', 'finished'], default: 'waiting' },
-  imagePool: [{ type: String }],
+  settings: {
+    roundTimeSeconds: { type: Number, default: 60 },
+    numRounds: { type: Number, default: 3 }
+  },
+  imagePool: [{
+    userId: String,
+    imageUrl: String
+  }],
   rounds: [{
-    imageUrl: String,
     submissions: [{
       userId: String,
+      imageUrl: String,
       text: String,
       votes: [String]
     }],
+    roundEndsAt: Date,
     winnerId: String
   }],
-  createdAt: { type: Date, expires: '1h', default: Date.now }
+  createdAt: { type: Date, expires: '2h', default: Date.now }
 });
 
 export default mongoose.model<IGame>('Game', GameSchema);
