@@ -16,7 +16,8 @@ const io = new Server(server, {
   cors: {
     origin: '*',
     methods: ['GET', 'POST']
-  }
+  },
+  maxHttpBufferSize: 1e8 // 100 MB limit for large Base64 arrays
 });
 
 app.use(cors());
