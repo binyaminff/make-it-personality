@@ -89,7 +89,7 @@ io.on('connection', (socket) => {
         game.imagePool.push({ userId: data.userId, imageUrl: url });
       });
       await game.save();
-      
+
       io.to(data.roomCode).emit('game_update', game);
     } catch (err) {
       console.error(err);
@@ -102,20 +102,20 @@ io.on('connection', (socket) => {
       if (!game) return;
 
       // Assign an image to each player
-      const submissions = [];
+      const submissions: any = [];
       const pool = [...game.imagePool];
-      
+
       game.players.forEach(player => {
         let imageUrl = "https://via.placeholder.com/800x800.png?text=Not+Enough+Images";
         if (pool.length > 0) {
           // Try to find an image NOT uploaded by this player
           let index = pool.findIndex(img => img.userId !== player.userId);
           if (index === -1) index = 0; // Fallback to own image
-          
+
           imageUrl = pool[index].imageUrl;
           pool.splice(index, 1); // Remove from available pool
         }
-        
+
         submissions.push({
           userId: player.userId,
           imageUrl: imageUrl,
@@ -127,7 +127,7 @@ io.on('connection', (socket) => {
       // Update remaining pool
       game.imagePool = pool;
       game.status = 'playing';
-      
+
       const roundEndsAt = new Date(Date.now() + game.settings.roundTimeSeconds * 1000);
       game.rounds.push({
         submissions: submissions,
